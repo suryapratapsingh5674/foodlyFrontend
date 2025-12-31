@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import AuthPage from './AuthPage'
 import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext.jsx'
 
 const BASE_URL = import.meta.env.VITE_BACKEND_SERVER
 
@@ -16,6 +17,7 @@ const PartnerRegister = () => {
   const [profileImage, setProfileImage] = useState(null)
   const [errorMessage, setErrorMessage] = useState('')
   const navigate = useNavigate();
+  const { refreshAuth, setAuthUser } = useAuth()
 
   const handleSubmit = async (event) => {
     event.preventDefault()
@@ -36,10 +38,16 @@ const PartnerRegister = () => {
       formData.append('address', address)
       formData.append('avatar', profileImage)
 
-      await axios.post(`${BASE_URL}/api/auth/partner/register`, formData, {
+      const response = await axios.post(`${BASE_URL}/api/auth/partner/register`, formData, {
         withCredentials: true,
         headers: { 'Content-Type': 'multipart/form-data' },
       })
+      const payloadUser = response.data?.user
+      if (payloadUser) {
+        setAuthUser(payloadUser, 'partner')
+      } else {
+        await refreshAuth()
+      }
       navigate('/dashboard')
     } catch (error) {
       console.error("partner register is failed", error)

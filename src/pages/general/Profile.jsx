@@ -21,7 +21,9 @@ const Profile = () => {
     const fetchProfile = async () => {
       try {
         setError('')
-        const response = await axios.get(`${BASE_URL}/api/food/partner/${partnerId}`)
+        const response = await axios.get(`${BASE_URL}/api/food/partner/${partnerId}`, {
+          withCredentials: true,
+        })
         setPartner(response.data?.partner || null)
         setVideos(response.data?.videos || [])
       } catch (err) {

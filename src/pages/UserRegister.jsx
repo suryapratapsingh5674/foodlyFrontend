@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import AuthPage from './AuthPage'
 import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext.jsx'
 
 const BASE_URL = import.meta.env.VITE_BACKEND_SERVER
 
@@ -10,15 +11,22 @@ const UserRegister = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const navigate = useNavigate();
+  const { refreshAuth, setAuthUser } = useAuth()
 
   const handleSubmit = async (event) => {
     event.preventDefault()
     try {
-      await axios.post(`${BASE_URL}/api/auth/user/register`, {
+      const response = await axios.post(`${BASE_URL}/api/auth/user/register`, {
         fullName,
         email,
         password,
       }, {withCredentials: true})
+      const payloadUser = response.data?.user
+      if (payloadUser) {
+        setAuthUser(payloadUser, 'user')
+      } else {
+        await refreshAuth()
+      }
       navigate('/')
     } catch (error) {
       console.error('User registration failed', error)

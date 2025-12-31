@@ -1,41 +1,18 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import axios from 'axios'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext.jsx'
 
 const BASE_URL = import.meta.env.VITE_BACKEND_SERVER
 
 const Navbar = () => {
-
-  const location = useLocation()
   const navigate = useNavigate()
-  const [authState, setAuthState] = useState({ user: false, partner: false })
+  const { user, isAuthenticated, refreshAuth } = useAuth()
   const [statusMessage, setStatusMessage] = useState('')
   const statusTimerRef = useRef(null)
-
-  const checkAuthState = useCallback(() => {
-    if (typeof document === 'undefined') {
-      setAuthState({ user: false, partner: false })
-      return
-    }
-
-    const cookies = document.cookie || ''
-    const normalizedCookies = cookies
-      .split(';')
-      .map((cookie) => cookie.trim().toLowerCase())
-
-    const hasUserToken = normalizedCookies.some((cookie) => cookie.startsWith('usertoken='))
-    const hasPartnerToken = normalizedCookies.some((cookie) => cookie.startsWith('partnertoken='))
-    const hasGenericToken = normalizedCookies.some((cookie) => cookie.startsWith('token='))
-
-    setAuthState({
-      user: hasUserToken || (!hasPartnerToken && hasGenericToken),
-      partner: hasPartnerToken,
-    })
-  }, [])
-
-  useEffect(() => {
-    checkAuthState()
-  }, [checkAuthState, location.pathname, location.search])
+  const accountType = user?.accountType || (user?.contactName ? 'partner' : null)
+  const showPartnerLogout = isAuthenticated && accountType === 'partner'
+  const showUserLogout = isAuthenticated && !showPartnerLogout
 
   useEffect(() => {
     return () => {
@@ -45,29 +22,27 @@ const Navbar = () => {
     }
   }, [])
 
+  const scheduleStatusReset = () => {
+    if (statusTimerRef.current) {
+      clearTimeout(statusTimerRef.current)
+    }
+    statusTimerRef.current = setTimeout(() => {
+      setStatusMessage('')
+    }, 5000)
+  }
+
   const handleUserLogout = async () => {
     try {
       setStatusMessage('')
       await axios.post(`${BASE_URL}/api/auth/user/logout`, {}, { withCredentials: true })
-      checkAuthState()
+      await refreshAuth()
       setStatusMessage('Signed out of user account.')
-      window.dispatchEvent(new Event('authstatechange'))
-      if (statusTimerRef.current) {
-        clearTimeout(statusTimerRef.current)
-      }
-      statusTimerRef.current = window.setTimeout(() => {
-        setStatusMessage('')
-      }, 5000)
+      scheduleStatusReset()
       navigate('/')
     } catch (error) {
       const message = error.response?.data?.message || 'Unable to log out right now.'
       setStatusMessage(message)
-      if (statusTimerRef.current) {
-        clearTimeout(statusTimerRef.current)
-      }
-      statusTimerRef.current = window.setTimeout(() => {
-        setStatusMessage('')
-      }, 5000)
+      scheduleStatusReset()
     }
   }
 
@@ -80,25 +55,14 @@ const Navbar = () => {
       } catch (_) {
         // ignore storage issues
       }
-      checkAuthState()
+      await refreshAuth()
       setStatusMessage('Signed out of partner account.')
-      window.dispatchEvent(new Event('authstatechange'))
-      if (statusTimerRef.current) {
-        clearTimeout(statusTimerRef.current)
-      }
-      statusTimerRef.current = window.setTimeout(() => {
-        setStatusMessage('')
-      }, 5000)
+      scheduleStatusReset()
       navigate('/partner/login')
     } catch (error) {
       const message = error.response?.data?.message || 'Unable to log out right now.'
       setStatusMessage(message)
-      if (statusTimerRef.current) {
-        clearTimeout(statusTimerRef.current)
-      }
-      statusTimerRef.current = window.setTimeout(() => {
-        setStatusMessage('')
-      }, 5000)
+      scheduleStatusReset()
     }
   }
 
@@ -108,7 +72,7 @@ const Navbar = () => {
         <Link to="/" className="navbar__brand" aria-label="Foodly home">
           Foodly
         </Link>
-        {(!authState.user && !authState.partner) ? (
+        {!isAuthenticated ? (
           <nav aria-label="Primary navigation">
             <ul className="navbar__menu">
               <li>
@@ -125,7 +89,7 @@ const Navbar = () => {
         ) : (
           <nav aria-label="Account navigation">
             <ul className="navbar__menu">
-              {authState.user && (
+              {showUserLogout && (
                 <li>
                   <button
                     type="button"
@@ -136,7 +100,7 @@ const Navbar = () => {
                   </button>
                 </li>
               )}
-              {authState.partner && (
+              {showPartnerLogout && (
                 <li>
                   <button
                     type="button"
@@ -144,6 +108,17 @@ const Navbar = () => {
                     onClick={handlePartnerLogout}
                   >
                     Logout (Partner)
+                  </button>
+                </li>
+              )}
+              {isAuthenticated && !showUserLogout && !showPartnerLogout && (
+                <li>
+                  <button
+                    type="button"
+                    className="navbar__button navbar__button--logout"
+                    onClick={handleUserLogout}
+                  >
+                    Logout
                   </button>
                 </li>
               )}

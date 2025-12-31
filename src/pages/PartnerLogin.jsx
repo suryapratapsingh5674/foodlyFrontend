@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import AuthPage from './AuthPage'
 import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext.jsx'
 
 const BASE_URL = import.meta.env.VITE_BACKEND_SERVER
 
@@ -10,12 +11,13 @@ const PartnerLogin = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const navigate = useNavigate()
+  const { refreshAuth, setAuthUser } = useAuth()
 
   const handleSubmit = async (event) => {
     event.preventDefault()
 
     try {
-      await axios.post(`${BASE_URL}/api/auth/partner/login`, {
+      const response = await axios.post(`${BASE_URL}/api/auth/partner/login`, {
         email,
         password
       }, {withCredentials: true})
@@ -24,6 +26,12 @@ const PartnerLogin = () => {
         window.localStorage.setItem('partnerEmail', email)
       }
 
+      const payloadUser = response.data?.user
+      if (payloadUser) {
+        setAuthUser(payloadUser, 'partner')
+      } else {
+        await refreshAuth()
+      }
       navigate('/dashboard')
     } catch (error) {
       console.error("login failed", error)

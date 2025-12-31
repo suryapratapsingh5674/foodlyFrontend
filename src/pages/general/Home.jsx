@@ -1,68 +1,59 @@
 import axios from 'axios'
 import React, { useEffect, useRef, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext.jsx'
 
 const BASE_URL = import.meta.env.VITE_BACKEND_SERVER
 
 const Home = () => {
 
   const [reels, setReels] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [loading, setLoading] = useState(false)
   const videoRefs = useRef(new Map())
-  const location = useLocation()
-
-  useEffect(() => {
-    if (typeof document === 'undefined') {
-      setIsAuthenticated(false)
-      return
-    }
-
-    const hasTokenCookie = () => (
-      (document.cookie || '')
-        .split(';')
-        .map((cookie) => cookie.trim().toLowerCase())
-        .some((cookie) =>
-          cookie.startsWith('token=') ||
-          cookie.startsWith('usertoken=') ||
-          cookie.startsWith('partnertoken=')
-        )
-    )
-
-    setIsAuthenticated(hasTokenCookie())
-    const handleAuthChange = () => {
-      setIsAuthenticated(hasTokenCookie())
-    }
-
-    window.addEventListener('authstatechange', handleAuthChange)
-
-    return () => {
-      window.removeEventListener('authstatechange', handleAuthChange)
-    }
-  }, [location.pathname, location.search])
+  const { isAuthenticated, isLoading: authLoading } = useAuth()
 
   useEffect(() => {
     if (!isAuthenticated) {
       setReels([])
       setLoading(false)
       videoRefs.current.clear()
-      return
+      return undefined
     }
+
+    const controller = new AbortController()
+    let isActive = true
 
     const fetchReels = async () => {
       try {
         setLoading(true)
-        const response = await axios.get(`${BASE_URL}/api/food/`, { withCredentials: true })
-        setReels(response.data.foodItem || [])
+        const response = await axios.get(`${BASE_URL}/api/food/`, {
+          withCredentials: true,
+          signal: controller.signal,
+        })
+        if (isActive) {
+          setReels(response.data.foodItem || [])
+        }
       } catch (error) {
-        console.error('failed to fetch data: ', error)
-        setReels([])
+        const isCanceled = error.name === 'CanceledError' || error.code === 'ERR_CANCELED'
+        if (!isCanceled) {
+          console.error('failed to fetch data: ', error)
+        }
+        if (isActive && !isCanceled) {
+          setReels([])
+        }
       } finally {
-        setLoading(false)
+        if (isActive) {
+          setLoading(false)
+        }
       }
     }
 
     fetchReels()
+
+    return () => {
+      isActive = false
+      controller.abort()
+    }
   }, [isAuthenticated])
 
   useEffect(() => {
@@ -93,6 +84,15 @@ const Home = () => {
       observer.disconnect()
     }
   }, [reels])
+
+  if (authLoading) {
+    return (
+      <main className="home-placeholder" aria-label="Checking authentication">
+        <div className="home-placeholder__spinner" />
+        <p>Preparing your personalized Foodly experience…</p>
+      </main>
+    )
+  }
 
   if (!isAuthenticated) {
     return (

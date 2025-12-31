@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+const BASE_URL = import.meta.env.VITE_BACKEND_SERVER
+
 const Dashboard = () => {
 
   const navigate = useNavigate()
@@ -45,7 +47,7 @@ const Dashboard = () => {
     const fetchDashboard = async () => {
       try {
         const query = new URLSearchParams({ email: partnerEmail })
-        const response = await fetch(`http://localhost:3000/api/food/partner/dashboard?${query.toString()}`, {
+        const response = await fetch(`${BASE_URL}/api/food/partner/dashboard?${query.toString()}`, {
           method: 'GET',
           signal: controller.signal,
           credentials: 'include',

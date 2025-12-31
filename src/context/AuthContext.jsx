@@ -45,20 +45,36 @@ export const AuthProvider = ({ children }) => {
   }, [])
 
   const logout = useCallback(async () => {
+    const accountType = user?.accountType || (user?.contactName ? 'partner' : null)
+    const primaryEndpoint = accountType === 'partner'
+      ? `${BASE_URL}/api/auth/partner/logout`
+      : `${BASE_URL}/api/auth/user/logout`
+
+    const performLogout = async (endpoint) => axios.post(endpoint, {}, {
+      withCredentials: true,
+    })
+
     setChecking(true)
     try {
-      const response = await axios.post(`${BASE_URL}/api/auth/logout`, {}, {
-        withCredentials: true,
-      })
+      const response = await performLogout(primaryEndpoint)
       setUser(null)
       return response?.data
-    } catch (error) {
-      throw error
+    } catch (primaryError) {
+      if (primaryError?.response?.status === 404) {
+        try {
+          const fallbackResponse = await performLogout(`${BASE_URL}/api/auth/logout`)
+          setUser(null)
+          return fallbackResponse?.data
+        } catch (fallbackError) {
+          throw fallbackError
+        }
+      }
+      throw primaryError
     } finally {
       setInitializing(false)
       setChecking(false)
     }
-  }, [])
+  }, [user])
 
   const setAuthUser = useCallback((nextUser, accountType) => {
     if (!nextUser) {

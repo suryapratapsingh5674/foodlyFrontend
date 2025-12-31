@@ -1,42 +1,26 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext.jsx'
 
 const BASE_URL = import.meta.env.VITE_BACKEND_SERVER
 
 const Dashboard = () => {
 
   const navigate = useNavigate()
-  const [partnerEmail, setPartnerEmail] = useState(null)
   const [dashboardData, setDashboardData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [selectedVideo, setSelectedVideo] = useState(null)
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth()
+  const isPartnerAccount = isAuthenticated && user?.accountType === 'partner'
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
-      setPartnerEmail('')
-      return
-    }
-
-    const savedEmail = window.localStorage.getItem('partnerEmail') || ''
-    setPartnerEmail(savedEmail)
-    if (!savedEmail) {
-      setError('Missing partner email.')
-      setLoading(false)
-    } else {
-      setError(null)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (partnerEmail === null) {
-      return
-    }
-
-    if (!partnerEmail) {
-      setError((prev) => prev || 'Missing partner email.')
-      setDashboardData(null)
-      setLoading(false)
+    if (!isPartnerAccount) {
+      if (!authLoading) {
+        setError('Partner access required.')
+        setLoading(false)
+        setDashboardData(null)
+      }
       return
     }
 
@@ -46,8 +30,7 @@ const Dashboard = () => {
     const controller = new AbortController()
     const fetchDashboard = async () => {
       try {
-        const query = new URLSearchParams({ email: partnerEmail })
-        const response = await fetch(`${BASE_URL}/api/food/partner/dashboard?${query.toString()}`, {
+        const response = await fetch(`${BASE_URL}/api/food/partner/dashboard`, {
           method: 'GET',
           signal: controller.signal,
           credentials: 'include',
@@ -78,12 +61,14 @@ const Dashboard = () => {
       }
     }
 
-    fetchDashboard()
+    if (!authLoading) {
+      fetchDashboard()
+    }
 
     return () => {
       controller.abort()
     }
-  }, [partnerEmail])
+  }, [authLoading, isPartnerAccount])
 
   useEffect(() => {
     if (!selectedVideo) {
@@ -104,7 +89,7 @@ const Dashboard = () => {
   const foodItems = dashboardData?.foodData ?? []
   const totalFoodItems = foodItems.length
 
-  if (loading) {
+  if (authLoading || loading) {
     return <div className="profile-page">Loading dashboard...</div>
   }
 

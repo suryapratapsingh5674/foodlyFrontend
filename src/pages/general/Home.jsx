@@ -10,10 +10,11 @@ const Home = () => {
   const [reels, setReels] = useState([])
   const [loading, setLoading] = useState(false)
   const videoRefs = useRef(new Map())
-  const { isAuthenticated, isLoading: authLoading } = useAuth()
+  const { isAuthenticated, isLoading: authLoading, user } = useAuth()
+  const isUserAccount = isAuthenticated && user?.accountType !== 'partner'
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isUserAccount) {
       setReels([])
       setLoading(false)
       videoRefs.current.clear()
@@ -54,7 +55,7 @@ const Home = () => {
       isActive = false
       controller.abort()
     }
-  }, [isAuthenticated])
+  }, [isUserAccount])
 
   useEffect(() => {
     if (!videoRefs.current.size) {
@@ -115,6 +116,20 @@ const Home = () => {
             <h2>Keep loyal customers engaged with mini food clips.</h2>
             <p>Upload short videos that showcase your kitchen, dishes, and story in seconds.</p>
           </div>
+        </div>
+      </main>
+    )
+  }
+
+  if (!isUserAccount) {
+    return (
+      <main className="home-placeholder" aria-label="Partner account message">
+        <div className="home-placeholder__card">
+          <h2>Switch to your dashboard</h2>
+          <p>
+            Food reels are reserved for user accounts. Manage your business from the partner dashboard.
+          </p>
+          <Link className="home-hero__button home-hero__button--primary" to="/dashboard">Open dashboard</Link>
         </div>
       </main>
     )

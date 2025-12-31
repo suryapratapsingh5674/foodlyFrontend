@@ -1,13 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react'
-import axios from 'axios'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 
-const BASE_URL = import.meta.env.VITE_BACKEND_SERVER
-
 const Navbar = () => {
   const navigate = useNavigate()
-  const { user, isAuthenticated, refreshAuth } = useAuth()
+  const { user, isAuthenticated, logout } = useAuth()
   const [statusMessage, setStatusMessage] = useState('')
   const statusTimerRef = useRef(null)
   const accountType = user?.accountType || (user?.contactName ? 'partner' : null)
@@ -31,39 +28,48 @@ const Navbar = () => {
     }, 5000)
   }
 
-  const handleUserLogout = async () => {
+  const handleLogout = async ({
+    successMessage,
+    redirectTo,
+    onClientReset,
+  }) => {
     try {
       setStatusMessage('')
-      await axios.post(`${BASE_URL}/api/auth/user/logout`, {}, { withCredentials: true })
-      await refreshAuth()
-      setStatusMessage('Signed out of user account.')
+      await logout()
+      if (typeof onClientReset === 'function') {
+        onClientReset()
+      }
+      setStatusMessage(successMessage || 'Signed out.')
       scheduleStatusReset()
-      navigate('/')
+      if (redirectTo) {
+        navigate(redirectTo)
+      }
     } catch (error) {
-      const message = error.response?.data?.message || 'Unable to log out right now.'
+      const message = error?.response?.data?.message || error?.message || 'Unable to log out right now.'
       setStatusMessage(message)
       scheduleStatusReset()
     }
   }
 
+  const handleUserLogout = async () => {
+    await handleLogout({
+      successMessage: 'Signed out of user account.',
+      redirectTo: '/',
+    })
+  }
+
   const handlePartnerLogout = async () => {
-    try {
-      setStatusMessage('')
-      await axios.post(`${BASE_URL}/api/auth/partner/logout`, {}, { withCredentials: true })
-      try {
-        window.localStorage?.removeItem('partnerEmail')
-      } catch (_) {
-        // ignore storage issues
-      }
-      await refreshAuth()
-      setStatusMessage('Signed out of partner account.')
-      scheduleStatusReset()
-      navigate('/partner/login')
-    } catch (error) {
-      const message = error.response?.data?.message || 'Unable to log out right now.'
-      setStatusMessage(message)
-      scheduleStatusReset()
-    }
+    await handleLogout({
+      successMessage: 'Signed out of partner account.',
+      redirectTo: '/partner/login',
+      onClientReset: () => {
+        try {
+          window.localStorage?.removeItem('partnerEmail')
+        } catch (_) {
+          // ignore storage issues
+        }
+      },
+    })
   }
 
   return (

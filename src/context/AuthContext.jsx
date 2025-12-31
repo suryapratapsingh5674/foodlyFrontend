@@ -44,6 +44,22 @@ export const AuthProvider = ({ children }) => {
     }
   }, [])
 
+  const logout = useCallback(async () => {
+    setChecking(true)
+    try {
+      const response = await axios.post(`${BASE_URL}/api/auth/logout`, {}, {
+        withCredentials: true,
+      })
+      setUser(null)
+      return response?.data
+    } catch (error) {
+      throw error
+    } finally {
+      setInitializing(false)
+      setChecking(false)
+    }
+  }, [])
+
   const setAuthUser = useCallback((nextUser, accountType) => {
     if (!nextUser) {
       setUser(null)
@@ -66,7 +82,8 @@ export const AuthProvider = ({ children }) => {
     isLoading: initializing || checking,
     refreshAuth,
     setAuthUser,
-  }), [user, initializing, checking, refreshAuth, setAuthUser])
+    logout,
+  }), [user, initializing, checking, refreshAuth, setAuthUser, logout])
 
   return (
     <AuthContext.Provider value={value}>
